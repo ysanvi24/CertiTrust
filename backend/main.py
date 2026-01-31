@@ -11,12 +11,12 @@ from pathlib import Path
 # Imports assuming we run from inside backend/ directory
 try:
     from utils import secure_hash
-    from crypto import sign_hash
+    from crypto import DocumentSigner
     from qr_service import generate_qr, stamp_document
 except ImportError:
     # Fallback for when running from root or if backend is a package
     from backend.utils import secure_hash
-    from backend.crypto import sign_hash
+    from backend.crypto import DocumentSigner
     from backend.qr_service import generate_qr, stamp_document
 
 app = FastAPI(title="Nagpur DPI Portal Document Verification")
@@ -59,8 +59,25 @@ def log_audit_event(doc_hash: str):
             "Content-Type": "application/json",
             "Prefer": "return=minimal"
         }
+
+        # Fetch previous hash for Hash Chain
+        previous_hash = None
+        try:
+            # Get the most recent record
+            get_url = f"{url}?select=document_hash&order=created_at.desc&limit=1"
+            # Reuse headers but remove Content-Type for GET if strict, but usually fine.
+            # However, standard headers for Supabase GET are same.
+            response = httpx.get(get_url, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                if data and len(data) > 0:
+                    previous_hash = data[0].get("document_hash")
+        except Exception as fetch_err:
+            print(f"Warning: Could not fetch previous hash: {fetch_err}")
+
         data = {
             "document_hash": doc_hash,
+            "previous_hash": previous_hash,
             "issuance_date": datetime.now(timezone.utc).isoformat()
         }
 
@@ -92,13 +109,15 @@ def issue_document(file: UploadFile = File(...)):
         doc_hash = secure_hash(input_path)
 
         # 2. Sign Hash
-        signature = sign_hash(doc_hash)
+        signer = DocumentSigner()
+        signature = signer.sign_document(doc_hash)
 
         # 3. Generate QR Payload
         payload = {
+            'id': file_id,
             'hash': doc_hash,
-            'sig': signature,
-            'issuer': 'Nagpur_DPI_Portal'
+            'iss': 'Nagpur_DPI_Portal',
+            'sig': signature
         }
 
         # 4. Generate QR Image

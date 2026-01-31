@@ -39,7 +39,7 @@ def stamp_document(input_pdf_path: str, output_pdf_path: str, qr_image: Image.Im
         # Define the size of the QR code on the PDF (e.g., 100x100 units)
         qr_width = 100
         qr_height = 100
-        margin = 50
+        margin = 36  # 0.5 inch (36pt)
 
         # Calculate position: top-right corner
         # x0 = page_width - margin - qr_width
