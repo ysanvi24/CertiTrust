@@ -16,3 +16,9 @@ create table if not exists attestations (
   contract_address text,
   created_at timestamptz default now()
 );
+
+create table if not exists audit_logs (
+  id uuid default uuid_generate_v4() primary key,
+  document_hash text not null,
+  issuance_date timestamptz default now()
+);

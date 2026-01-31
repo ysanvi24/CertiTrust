@@ -5,3 +5,6 @@ cryptography
 qrcode[pil]
 pymupdf
 httpx
+opencv-python-headless
+pillow
+supabase
