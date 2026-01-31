@@ -4,6 +4,8 @@ from starlette.background import BackgroundTask
 import shutil
 import os
 import uuid
+import httpx
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Imports assuming we run from inside backend/ directory
@@ -30,6 +32,44 @@ def cleanup_files(*files):
                 os.remove(file)
             except Exception:
                 pass
+
+def process_background_tasks(input_path: Path, output_path: Path, doc_hash: str):
+    """
+    Handles background tasks: logging to audit trail and cleaning up temp files.
+    """
+    log_audit_event(doc_hash)
+    cleanup_files(input_path, output_path)
+
+def log_audit_event(doc_hash: str):
+    """
+    Logs the document hash to Supabase audit_logs table.
+    """
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+    if not supabase_url or not supabase_key:
+        print("WARNING: Supabase credentials not found. Skipping audit log.")
+        return
+
+    try:
+        url = f"{supabase_url}/rest/v1/audit_logs"
+        headers = {
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+        }
+        data = {
+            "document_hash": doc_hash,
+            "issuance_date": datetime.now(timezone.utc).isoformat()
+        }
+
+        # Using synchronous post as we are in a sync function
+        response = httpx.post(url, headers=headers, json=data)
+        if response.status_code >= 400:
+            print(f"Error logging to Supabase: {response.text}")
+    except Exception as e:
+        print(f"Exception logging to Supabase: {e}")
 
 @app.post("/issue/document")
 def issue_document(file: UploadFile = File(...)):
@@ -71,7 +111,7 @@ def issue_document(file: UploadFile = File(...)):
             path=output_path,
             filename=f"stamped_{file.filename}",
             media_type='application/pdf',
-            background=BackgroundTask(cleanup_files, input_path, output_path)
+            background=BackgroundTask(process_background_tasks, input_path, output_path, doc_hash)
         )
 
     except Exception as e:

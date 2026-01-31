@@ -23,7 +23,9 @@ def get_issuer_private_key() -> ed25519.Ed25519PrivateKey:
                 return ed25519.Ed25519PrivateKey.from_private_bytes(key_bytes)
 
             # Try loading as PEM
-            return serialization.load_pem_private_key(key_bytes, password=None)
+            key = serialization.load_pem_private_key(key_bytes, password=None)
+            print("Successfully loaded ISSUER_PRIVATE_KEY from environment.")
+            return key
         except Exception as e:
             print(f"Error loading key from env: {e}")
             # Fallthrough to generate
