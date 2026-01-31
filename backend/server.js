@@ -54,6 +54,10 @@ Bun.serve({
     // Simple routing
     if (req.method === 'POST' && pathname === '/api/issueCredential') return attachCors(await issueCredential(req));
     if (req.method === 'POST' && pathname === '/api/verifyCredential') return attachCors(await verifyCredential(req));
+    if ((req.method === 'GET' || req.method === 'POST') && pathname === '/api/verifyHash') {
+      const { verifyHash } = await import('./routes/verifyHash.js');
+      return attachCors(await verifyHash(req));
+    }
     if (req.method === 'GET' && pathname === '/api/getCredential') return attachCors(await getCredential(req));
 
     return jsonResponse({ ok: true, message: 'DPI-03 backend running' });

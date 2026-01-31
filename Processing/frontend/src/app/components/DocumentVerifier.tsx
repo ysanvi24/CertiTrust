@@ -135,15 +135,17 @@ export function DocumentVerifier() {
       // Keep a short human-friendly preview for the UI (20 chars)
       setShortId(signatureId.slice(0, 20));
       const timestamp = new Date().toISOString();
-      const verificationData = JSON.stringify({
-        iss: "CertifyPro Secure System",
-        id: signatureId,
-        fileHash,
-        ts: timestamp,
-        file: uploadedFile.name,
-      });
-      
-      const qrCodeDataUrl = await QRCode.toDataURL(verificationData, {
+      const verificationUrl = (() => {
+        try {
+          // Prefer backend at same host on port 3000 (dev); fall back to current origin
+          const origin = window.location.origin.replace(/:\d+$/, ':3000');
+          return `${origin}/api/verifyHash?hash=${fileHash}`;
+        } catch (e) {
+          return `/api/verifyHash?hash=${fileHash}`;
+        }
+      })();
+
+      const qrCodeDataUrl = await QRCode.toDataURL(verificationUrl, {
         margin: 1,
         color: {
           dark: '#000000',
@@ -151,6 +153,7 @@ export function DocumentVerifier() {
         }
       });
       const qrImage = await pdfDoc.embedPng(qrCodeDataUrl);
+
       
       const pages = pdfDoc.getPages();
       const firstPage = pages[0];
