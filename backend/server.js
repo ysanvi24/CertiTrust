@@ -1,3 +1,7 @@
+// ====== ADDED TO LOAD ENV ======
+import "dotenv/config";
+// ===============================
+
 import { issueCredential } from './routes/issueCredential.js';
 import { verifyCredential } from './routes/verifyCredential.js';
 import { getCredential } from './routes/getCredential.js';
@@ -11,11 +15,13 @@ const corsHeaders = {
 };
 
 function jsonResponse(body, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  return new Response(
+    JSON.stringify(body),
+    { status, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+  );
 }
 
 async function attachCors(res) {
-  // Read the original response body and re-wrap with CORS headers
   const text = await res.text();
   const headers = Object.fromEntries(res.headers.entries());
   return new Response(text, { status: res.status, headers: { ...headers, ...corsHeaders } });
@@ -23,20 +29,36 @@ async function attachCors(res) {
 
 Bun.serve({
   port: Number(PORT),
+
   fetch: async (req) => {
     const url = new URL(req.url);
     const pathname = url.pathname;
 
     // CORS preflight
-    if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
 
     // Serve demo frontend static files under /frontend
     if (req.method === 'GET' && pathname.startsWith('/frontend')) {
-      const relPath = pathname === '/frontend' || pathname === '/frontend/' ? '/index.html' : pathname.replace('/frontend', '');
+      const relPath =
+        pathname === '/frontend' || pathname === '/frontend/'
+          ? '/index.html'
+          : pathname.replace('/frontend', '');
+
       const filePath = `frontend${relPath}`;
+
       try {
-        const contentType = filePath.endsWith('.js') ? 'application/javascript' : filePath.endsWith('.css') ? 'text/css' : 'text/html';
-        return new Response(Bun.file(filePath), { status: 200, headers: { 'Content-Type': contentType, ...corsHeaders } });
+        const contentType =
+          filePath.endsWith('.js')  ? 'application/javascript' :
+          filePath.endsWith('.css') ? 'text/css' :
+                                      'text/html';
+
+        return new Response(Bun.file(filePath), {
+          status: 200,
+          headers: { 'Content-Type': contentType, ...corsHeaders }
+        });
+
       } catch (err) {
         return jsonResponse({ ok: false, error: 'Not found' }, 404);
       }
@@ -45,27 +67,33 @@ Bun.serve({
     // Serve root index.html
     if (req.method === 'GET' && pathname === '/') {
       try {
-        return new Response(Bun.file('frontend/index.html'), { headers: { 'Content-Type': 'text/html', ...corsHeaders } });
+        return new Response(Bun.file('frontend/index.html'), {
+          headers: { 'Content-Type': 'text/html', ...corsHeaders }
+        });
       } catch (err) {
         return jsonResponse({ ok: false, error: 'Not found' }, 404);
       }
     }
 
-    // Simple routing
-    if (req.method === 'POST' && pathname === '/api/issueCredential') return attachCors(await issueCredential(req));
-    if (req.method === 'POST' && pathname === '/api/verifyCredential') return attachCors(await verifyCredential(req));
+    // API Routing
+    if (req.method === 'POST' && pathname === '/api/issueCredential')
+      return attachCors(await issueCredential(req));
+
+    if (req.method === 'POST' && pathname === '/api/verifyCredential')
+      return attachCors(await verifyCredential(req));
+
     if ((req.method === 'GET' || req.method === 'POST') && pathname === '/api/verifyHash') {
       const { verifyHash } = await import('./routes/verifyHash.js');
       return attachCors(await verifyHash(req));
     }
 
-    // Register a document hash and optional attestation (POST JSON: { fileHash, owner, fileName, metadata, attest })
     if (req.method === 'POST' && pathname === '/api/registerHash') {
       const { registerHash } = await import('./routes/registerHash.js');
       return attachCors(await registerHash(req));
     }
 
-    if (req.method === 'GET' && pathname === '/api/getCredential') return attachCors(await getCredential(req));
+    if (req.method === 'GET' && pathname === '/api/getCredential')
+      return attachCors(await getCredential(req));
 
     return jsonResponse({ ok: true, message: 'DPI-03 backend running' });
   }
