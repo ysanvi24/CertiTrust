@@ -1,4 +1,5 @@
-import { DocumentVerifier } from "@/app/components/DocumentVerifier";
+import React from "react";
+import { DocumentVerifier } from "./components/DocumentVerifier";
 
 export default function App() {
   return (

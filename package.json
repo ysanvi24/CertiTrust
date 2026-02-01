@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.9.0",
+    "dotenv": "^17.2.3",
     "ethers": "^6.8.0",
-    "jose": "^4.16.0"
+    "jose": "^6.1.3"
   }
 }

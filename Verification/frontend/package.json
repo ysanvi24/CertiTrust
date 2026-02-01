@@ -41,6 +41,7 @@
     "@radix-ui/react-tooltip": "1.1.8",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.93.3",
+    "axios": "^1.13.4",
     "class-variance-authority": "0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
@@ -68,6 +69,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
+    "@types/axios": "^0.9.36",
     "@vitejs/plugin-react": "4.7.0",
     "tailwindcss": "4.1.12",
     "vite": "6.3.5"

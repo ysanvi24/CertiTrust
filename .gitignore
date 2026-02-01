@@ -3,3 +3,4 @@ node_modules
 __pycache__/
 *.pyc
 backend/temp_files/
+package-lock.json
