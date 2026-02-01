@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { 
   Shield, ArrowLeft, Upload, CheckCircle, XCircle, 
   AlertTriangle, FileText, Link2, Clock, Building2, Loader2,
-  AlertCircle, Info
+  AlertCircle, Info, Brain, Scan, Eye, Zap
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
@@ -22,6 +22,33 @@ type ErrorCode =
   | 'INSTITUTION_NOT_FOUND'
   | 'DOCUMENT_REVOKED'
   | 'INTERNAL_ERROR';
+
+interface ForensicAnalysis {
+  overall_status: 'clean' | 'suspicious' | 'manipulated' | 'error'
+  tiers_executed: number[]
+  ela_score?: number
+  ela_status?: string
+  local_ai_score?: number
+  local_ai_status?: string
+  cloud_ai_score?: number
+  cloud_ai_status?: string
+  details?: string
+}
+
+interface TrustScore {
+  trust_score: number
+  trust_score_percent: number
+  grade: 'A' | 'B' | 'C' | 'D' | 'F'
+  label: string
+  components: {
+    crypto_valid: boolean
+    forensic_score?: number
+    ai_detection?: {
+      detected: boolean
+      confidence?: number
+    }
+  }
+}
 
 interface VerificationResult {
   valid: boolean
@@ -40,6 +67,10 @@ interface VerificationResult {
   credential_type?: string
   hash_note?: string
   signature_verified_with?: string
+  // AI Detection & Trust Score
+  forensic_analysis?: ForensicAnalysis
+  trust_score?: TrustScore
+  forensic_analysis_error?: string
   // Legacy fields
   is_valid?: boolean
   institution_id?: string | null
@@ -405,6 +436,175 @@ export default function VerifyPage() {
                         )}
                       </div>
                     </div>
+
+                    {/* AI Detection & Trust Score Section */}
+                    {(result.trust_score || result.forensic_analysis) && (
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                          <Brain className="h-4 w-4" />
+                          AI Detection & Trust Score
+                        </h4>
+
+                        {/* Trust Score Display */}
+                        {result.trust_score && (
+                          <div className={`p-4 rounded-lg border-2 ${
+                            result.trust_score.grade === 'A' ? 'bg-green-50 border-green-300' :
+                            result.trust_score.grade === 'B' ? 'bg-blue-50 border-blue-300' :
+                            result.trust_score.grade === 'C' ? 'bg-yellow-50 border-yellow-300' :
+                            result.trust_score.grade === 'D' ? 'bg-orange-50 border-orange-300' :
+                            'bg-red-50 border-red-300'
+                          }`}>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <Zap className={`h-6 w-6 ${
+                                  result.trust_score.grade === 'A' ? 'text-green-600' :
+                                  result.trust_score.grade === 'B' ? 'text-blue-600' :
+                                  result.trust_score.grade === 'C' ? 'text-yellow-600' :
+                                  result.trust_score.grade === 'D' ? 'text-orange-600' :
+                                  'text-red-600'
+                                }`} />
+                                <span className="font-bold text-lg">Trust Score</span>
+                              </div>
+                              <div className="text-right">
+                                <span className={`text-3xl font-bold ${
+                                  result.trust_score.grade === 'A' ? 'text-green-700' :
+                                  result.trust_score.grade === 'B' ? 'text-blue-700' :
+                                  result.trust_score.grade === 'C' ? 'text-yellow-700' :
+                                  result.trust_score.grade === 'D' ? 'text-orange-700' :
+                                  'text-red-700'
+                                }`}>
+                                  {result.trust_score.trust_score_percent}%
+                                </span>
+                                <Badge className={`ml-2 ${
+                                  result.trust_score.grade === 'A' ? 'bg-green-600' :
+                                  result.trust_score.grade === 'B' ? 'bg-blue-600' :
+                                  result.trust_score.grade === 'C' ? 'bg-yellow-600' :
+                                  result.trust_score.grade === 'D' ? 'bg-orange-600' :
+                                  'bg-red-600'
+                                } text-white`}>
+                                  Grade {result.trust_score.grade}
+                                </Badge>
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-600">{result.trust_score.label}</p>
+                            
+                            {/* Progress Bar */}
+                            <div className="mt-3 h-3 bg-gray-200 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full transition-all duration-500 ${
+                                  result.trust_score.grade === 'A' ? 'bg-green-500' :
+                                  result.trust_score.grade === 'B' ? 'bg-blue-500' :
+                                  result.trust_score.grade === 'C' ? 'bg-yellow-500' :
+                                  result.trust_score.grade === 'D' ? 'bg-orange-500' :
+                                  'bg-red-500'
+                                }`}
+                                style={{ width: `${result.trust_score.trust_score_percent}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Forensic Analysis Details */}
+                        {result.forensic_analysis && (
+                          <div className="grid gap-3">
+                            {/* Overall Status */}
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <div className="flex items-center gap-2">
+                                <Scan className={`h-5 w-5 ${
+                                  result.forensic_analysis.overall_status === 'clean' ? 'text-green-600' :
+                                  result.forensic_analysis.overall_status === 'suspicious' ? 'text-yellow-600' :
+                                  'text-red-600'
+                                }`} />
+                                <span className="font-medium">Forensic Analysis</span>
+                              </div>
+                              <Badge variant={
+                                result.forensic_analysis.overall_status === 'clean' ? 'success' :
+                                result.forensic_analysis.overall_status === 'suspicious' ? 'secondary' :
+                                'destructive'
+                              }>
+                                {result.forensic_analysis.overall_status.charAt(0).toUpperCase() + 
+                                 result.forensic_analysis.overall_status.slice(1)}
+                              </Badge>
+                            </div>
+
+                            {/* ELA Analysis */}
+                            {result.forensic_analysis.ela_score !== undefined && (
+                              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                  <Eye className="h-5 w-5 text-purple-600" />
+                                  <span className="font-medium">Error Level Analysis (ELA)</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-gray-600">
+                                    {(result.forensic_analysis.ela_score * 100).toFixed(1)}%
+                                  </span>
+                                  <Badge variant={
+                                    result.forensic_analysis.ela_status === 'clean' ? 'success' :
+                                    result.forensic_analysis.ela_status === 'suspicious' ? 'secondary' :
+                                    'destructive'
+                                  }>
+                                    {result.forensic_analysis.ela_status || 'N/A'}
+                                  </Badge>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Local AI Detection */}
+                            {result.forensic_analysis.local_ai_score !== undefined && (
+                              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                  <Brain className="h-5 w-5 text-blue-600" />
+                                  <span className="font-medium">AI Image Detection</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-gray-600">
+                                    {(result.forensic_analysis.local_ai_score * 100).toFixed(1)}% AI
+                                  </span>
+                                  <Badge variant={
+                                    result.forensic_analysis.local_ai_status === 'clean' ? 'success' :
+                                    result.forensic_analysis.local_ai_status === 'suspicious' ? 'secondary' :
+                                    'destructive'
+                                  }>
+                                    {result.forensic_analysis.local_ai_status === 'clean' ? 'Human-made' : 
+                                     result.forensic_analysis.local_ai_status === 'suspicious' ? 'Uncertain' : 
+                                     'AI-Generated'}
+                                  </Badge>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Tiers Executed */}
+                            {result.forensic_analysis.tiers_executed && (
+                              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                  <Scan className="h-5 w-5 text-gray-600" />
+                                  <span className="font-medium">Analysis Tiers</span>
+                                </div>
+                                <div className="flex gap-1">
+                                  {[1, 2, 3].map((tier) => (
+                                    <Badge 
+                                      key={tier}
+                                      variant={result.forensic_analysis?.tiers_executed?.includes(tier) ? 'default' : 'outline'}
+                                      className={result.forensic_analysis?.tiers_executed?.includes(tier) ? 'bg-purple-600' : ''}
+                                    >
+                                      T{tier}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Forensic Error */}
+                        {result.forensic_analysis_error && (
+                          <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-50 text-yellow-700 text-sm">
+                            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                            <span>Forensic analysis unavailable: {result.forensic_analysis_error}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Hash Information (collapsible for technical users) */}
                     {(result.original_hash || result.current_file_hash) && (
