@@ -1,0 +1,80 @@
+# CertiTrust Production Docker Compose
+# Usage: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: certitrust-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - KMS_MASTER_KEY=${KMS_MASTER_KEY}
+      - ISSUER_PRIVATE_KEY=${ISSUER_PRIVATE_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,https://your-domain.com}
+      - HF_TOKEN=${HF_TOKEN:-}
+    volumes:
+      - backend-temp:/app/temp_files
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - certitrust-network
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:8000}
+    container_name: certitrust-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - certitrust-network
+
+  # Nginx Reverse Proxy (optional, for production)
+  nginx:
+    image: nginx:alpine
+    container_name: certitrust-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - certitrust-network
+    profiles:
+      - production
+
+networks:
+  certitrust-network:
+    driver: bridge
+
+volumes:
+  backend-temp:
+    driver: local

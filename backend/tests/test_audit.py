@@ -1,53 +1,54 @@
+"""Legacy audit log tests - updated for new audit service."""
 import os
 import httpx
 from unittest.mock import patch, MagicMock
-from backend.main import log_audit_event
 
-@patch("backend.main.httpx.post")
-@patch("backend.main.httpx.get")
+# Set test environment
+os.environ["SUPABASE_URL"] = "http://test.com"
+os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "secret"
+
+from backend.services.audit import AuditService, AuditEventType
+
+@patch("backend.services.audit.httpx.post")
+@patch("backend.services.audit.httpx.get")
 def test_audit_log_hash_chain(mock_get, mock_post):
-    # Setup env
-    os.environ["SUPABASE_URL"] = "http://test.com"
-    os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "secret"
-
+    """Test that audit service creates hash chain links."""
     # Mock previous entry
     mock_get.return_value.status_code = 200
-    mock_get.return_value.json.return_value = [{"document_hash": "prev_hash_123"}]
+    mock_get.return_value.json.return_value = [{"log_hash": "prev_hash_123", "chain_position": 5}]
 
     # Mock post response
     mock_post.return_value.status_code = 201
 
-    log_audit_event("current_hash_456")
+    service = AuditService()
+    entry = service.log_event(
+        event_type=AuditEventType.DOCUMENT_ISSUED,
+        document_hash="current_hash_456"
+    )
 
-    # Check GET call
-    mock_get.assert_called_once()
-    args, kwargs = mock_get.call_args
-    assert "audit_logs" in args[0]
-    assert "order=created_at.desc" in args[0]
+    # Check that entry was created with chain link
+    assert entry is not None
+    assert entry.previous_log_hash == "prev_hash_123"
+    assert entry.chain_position == 6
+    assert entry.document_hash == "current_hash_456"
 
-    # Check POST call
-    mock_post.assert_called_once()
-    args, kwargs = mock_post.call_args
-    data = kwargs['json']
-    assert data['document_hash'] == "current_hash_456"
-    assert data['previous_hash'] == "prev_hash_123"
-    assert "issuance_date" in data
-
-@patch("backend.main.httpx.post")
-@patch("backend.main.httpx.get")
+@patch("backend.services.audit.httpx.post")
+@patch("backend.services.audit.httpx.get")
 def test_audit_log_no_previous_hash(mock_get, mock_post):
-    os.environ["SUPABASE_URL"] = "http://test.com"
-    os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "secret"
-
+    """Test audit log for first entry (no previous hash)."""
     # Mock no previous entry
     mock_get.return_value.status_code = 200
     mock_get.return_value.json.return_value = []
 
     mock_post.return_value.status_code = 201
 
-    log_audit_event("first_hash_789")
+    service = AuditService()
+    entry = service.log_event(
+        event_type=AuditEventType.DOCUMENT_ISSUED,
+        document_hash="first_hash_789"
+    )
 
-    args, kwargs = mock_post.call_args
-    data = kwargs['json']
-    assert data['document_hash'] == "first_hash_789"
-    assert data['previous_hash'] is None
+    assert entry is not None
+    assert entry.document_hash == "first_hash_789"
+    assert entry.previous_log_hash is None
+    assert entry.chain_position == 1

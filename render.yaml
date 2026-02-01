@@ -1,0 +1,57 @@
+# ===========================================
+# Render Blueprint - CertiTrust Deployment
+# ===========================================
+# Deploy: Connect GitHub repo → Render auto-detects this file
+
+services:
+  # =========================================
+  # Backend API Service
+  # =========================================
+  - type: web
+    name: certitrust-api
+    runtime: python
+    region: oregon
+    plan: starter
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: FRONTEND_URL
+        fromService:
+          name: certitrust-web
+          type: web
+          property: host
+      - key: ENVIRONMENT
+        value: production
+
+  # =========================================
+  # Frontend Next.js Service
+  # =========================================
+  - type: web
+    name: certitrust-web
+    runtime: node
+    region: oregon
+    plan: starter
+    rootDir: web
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          name: certitrust-api
+          type: web
+          property: hostport
+      - key: NODE_ENV
+        value: production
