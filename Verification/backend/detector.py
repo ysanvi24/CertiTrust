@@ -22,8 +22,8 @@ def analyze_image(image_path: str) -> dict:
 
     probs = torch.softmax(outputs.logits, dim=1)[0]
 
-    artificial = float(probs[0])
-    human = float(probs[1])
+    human = float(probs[0])
+    artificial = float(probs[1])
 
     return {
         "ai_manipulation_likely": artificial > 0.2,

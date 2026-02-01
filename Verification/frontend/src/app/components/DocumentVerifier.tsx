@@ -17,8 +17,9 @@ import {
   Lock,
   Download
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
+import axios from "axios";
 
 type VerificationStatus = "idle" | "uploading" | "scanning" | "analyzing" | "complete" | "error";
 
@@ -28,6 +29,11 @@ interface VerificationResult {
   details: string;
   id?: string;
   timestamp?: string;
+  qr_verified?: boolean;
+  ai_check?: {
+    ai_manipulation_likely: boolean;
+    trust_score: number;
+  };
 }
 
 export function DocumentVerifier() {
@@ -62,64 +68,28 @@ export function DocumentVerifier() {
 
   const verifyDocument = async (fileToVerify: File) => {
     try {
-      const startTime = Date.now();
-      
-      // Visual progress sequencer
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 95) return 95;
-          return prev + (Math.random() * 3);
-        });
-      }, 150);
+      setStatus("uploading");
 
-      // Step sequencer
-      const stepInterval = setInterval(() => {
-        setScanStep((prev) => (prev < scanSteps.length - 1 ? prev + 1 : prev));
-      }, 800);
-
-      // Call Backend
       const formData = new FormData();
       formData.append("file", fileToVerify);
 
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-68c3da2b/verify`, {
-        method: "POST",
-        headers: {
-           "Authorization": `Bearer ${publicAnonKey}`
-        },
-        body: formData
+      // Make API call to the backend
+      const response = await axios.post("http://localhost:8000/verify-document", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
-      if (!response.ok) {
-        throw new Error(`Verification failed: ${response.statusText}`);
-      }
+      const { data } = response;
 
-      const data = await response.json();
-
-      // Ensure a minimum "premium feel" duration
-      const elapsedTime = Date.now() - startTime;
-      const minDuration = 4000; // 4 seconds of "analysis" looks more professional than instant
-      if (elapsedTime < minDuration) {
-        await new Promise(resolve => setTimeout(resolve, minDuration - elapsedTime));
-      }
-
-      clearInterval(progressInterval);
-      clearInterval(stepInterval);
-      setProgress(100);
-      
-      setTimeout(() => {
-        setResult({
-          score: data.score,
-          verdict: data.verdict,
-          details: data.details,
-          id: data.id,
-          timestamp: data.timestamp
-        });
+      if (data.status === "verified") {
+        setResult(data); // Store the verification result
         setStatus("complete");
-      }, 600);
-
-    } catch (error) {
-      console.error("Verification error:", error);
-      setErrorMessage("Secure upload failed. Please check your connection and try again.");
+      } else {
+        setErrorMessage("Document verification failed.");
+        setStatus("error");
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMessage("An error occurred during verification.");
       setStatus("error");
     }
   };
@@ -328,18 +298,18 @@ export function DocumentVerifier() {
                               stroke="currentColor" strokeWidth="8" 
                               fill="transparent" 
                               strokeDasharray={440}
-                              strokeDashoffset={440 - (440 * result.score) / 100}
+                              strokeDashoffset={440 - (440 * (result.ai_check?.trust_score ?? 0)) / 100}
                               className={cn(
                                 "transition-all duration-1000 ease-out",
-                                result.score >= 85 ? "text-emerald-500" : (result.score >= 50 ? "text-amber-500" : "text-rose-500")
+                                (result.ai_check?.trust_score ?? 0) >= 85 ? "text-emerald-500" : ((result.ai_check?.trust_score ?? 0) >= 50 ? "text-amber-500" : "text-rose-500")
                               )}
                               strokeLinecap="round"
                               initial={{ strokeDashoffset: 440 }}
-                              animate={{ strokeDashoffset: 440 - (440 * result.score) / 100 }}
+                              animate={{ strokeDashoffset: 440 - (440 * (result.ai_check?.trust_score ?? 0)) / 100 }}
                            />
                         </svg>
                         <div className="absolute flex flex-col items-center">
-                          <span className="text-4xl font-bold text-slate-900">{result.score}</span>
+                          <span className="text-4xl font-bold text-slate-900">{result.ai_check?.trust_score}%</span>
                           <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Trust Score</span>
                         </div>
                      </div>
@@ -355,14 +325,6 @@ export function DocumentVerifier() {
 
                   {/* Details Column */}
                   <div className="md:col-span-7 space-y-6">
-                    <div>
-                       <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wide mb-3 flex items-center gap-2">
-                         <Activity className="w-4 h-4 text-slate-400" /> Analysis Summary
-                       </h3>
-                       <p className="text-slate-600 text-sm leading-relaxed bg-white p-4 rounded-lg border border-slate-100 shadow-sm">
-                         {result.details}
-                       </p>
-                    </div>
 
                     <div className="space-y-3">
                        <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wide mb-3 flex items-center gap-2">
@@ -371,10 +333,8 @@ export function DocumentVerifier() {
                        
                        <div className="grid grid-cols-1 gap-2">
                           {[
-                            { label: "Metadata Consistency", status: result.score > 60 },
-                            { label: "Compression Analysis", status: result.score > 40 },
-                            { label: "Digital Signature", status: result.score > 80 },
-                            { label: "Steganography Check", status: true }
+                            { label: "Signature Consistency", status: result.qr_verified },
+                            { label: "AI Analysis", status: !(result.ai_check?.ai_manipulation_likely) },
                           ].map((item, i) => (
                             <div key={i} className="flex items-center justify-between p-2.5 bg-slate-50 rounded border border-slate-100">
                                <span className="text-sm text-slate-600">{item.label}</span>
@@ -401,11 +361,6 @@ export function DocumentVerifier() {
                    >
                      <RefreshCw className="w-4 h-4" />
                      Verify New Document
-                   </button>
-
-                   <button className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-md transition-all">
-                     <Download className="w-4 h-4" />
-                     Download Report
                    </button>
                 </div>
               </motion.div>

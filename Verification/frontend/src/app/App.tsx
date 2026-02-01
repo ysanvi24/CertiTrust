@@ -1,5 +1,5 @@
 import React from "react";
-import { DocumentVerifier } from "@/app/components/DocumentVerifier";
+import { DocumentVerifier } from "./components/DocumentVerifier";
 
 export default function App() {
   return (

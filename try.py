@@ -8,7 +8,7 @@ processor = AutoImageProcessor.from_pretrained(MODEL_NAME)
 model = AutoModelForImageClassification.from_pretrained(MODEL_NAME)
 model.eval()
 
-img = Image.open("altered.jpeg").convert("RGB")
+img = Image.open("notaltered.jpeg").convert("RGB")
 inputs = processor(images=img, return_tensors="pt")
 
 with torch.no_grad():
