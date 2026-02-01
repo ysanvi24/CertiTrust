@@ -1,3 +1,6 @@
 node_modules
 .env
+__pycache__/
+*.pyc
+backend/temp_files/
 package-lock.json

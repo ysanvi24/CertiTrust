@@ -1,0 +1,69 @@
+# CertiTrust Backend Dependencies
+# ================================
+# Multi-tenant document verification platform
+# HARDWARE CONSTRAINT: 8GB RAM, peak usage <2GB
+
+# Web Framework
+fastapi>=0.104.0
+uvicorn>=0.24.0
+
+# File handling
+python-multipart>=0.0.6
+
+# Cryptography (Ed25519)
+cryptography>=41.0.0
+
+# QR Code generation
+qrcode[pil]>=7.4.0
+
+# PDF processing (high-speed)
+pymupdf>=1.23.0
+
+# HTTP client
+httpx>=0.25.0
+
+# Image processing
+pillow>=10.0.0
+numpy>=1.24.0
+
+# QR detection (headless for minimal overhead)
+opencv-python-headless>=4.8.0
+
+# QR decoding (handles Level H QR codes better than OpenCV)
+# Note: Requires libzbar0 system library (apt-get install libzbar0)
+pyzbar>=0.1.9
+
+# Supabase client
+supabase>=2.0.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# ============================================================
+# Forensic AI Dependencies (CPU-optimized for 8GB RAM)
+# ============================================================
+# PyTorch - CPU only version to save RAM
+# Install with: pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch>=2.0.0
+
+# Hugging Face Transformers (for ViT and AI detector models)
+# Models used:
+# - umm-maybe/AI-image-detector (~92% accuracy)
+# - ashish-001/deepfake-detection-using-ViT (~92% baseline)
+transformers>=4.35.0
+
+# Low memory usage flag support
+accelerate>=0.24.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+
+# Production WSGI server
+gunicorn>=21.0.0
+
+# Development tools (optional)
+# black>=23.0.0
+# flake8>=6.0.0
+# mypy>=1.5.0
